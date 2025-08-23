@@ -36,7 +36,9 @@ Narzędzie stworzone z myślą o podcasterach – umożliwia automatyczne tworze
 generowanie napisów oraz przygotowanie materiałów do publikacji 
 w mediach społecznościowych.
 
-ℹ️ **Uwaga:** Przed wczytaniem nowego pliku należy odświeżyć stronę, aby wyczyścić pamięć poprzedniego pliku.
+ℹ️ **Uwaga:** 
+Przed wczytaniem nowego pliku należy odświeżyć stronę, aby wyczyścić pamięć poprzedniego pliku.
+📦 **Maksymalny rozmiar pliku: 200MB**
 """)
 
 # --- Layout: 2 kolumny ---
@@ -48,6 +50,8 @@ with col1:
     video_file = st.file_uploader("Wybierz plik (MP4 lub MOV)", type=["mp4", "mov"])
 
     if video_file is not None:
+        st.write(f"📦 Rozmiar pliku: {video_file.size / (1024 * 1024):.2f} MB")
+
         # Zapisz plik tymczasowo
         with tempfile.NamedTemporaryFile(delete=False, suffix=Path(video_file.name).suffix) as temp_video:
             temp_video.write(video_file.read())
@@ -71,6 +75,10 @@ with col1:
         # Odtwarzacz audio
         audio_bytes = Path(audio_path).read_bytes()
         st.audio(audio_bytes, format="audio/mp3")
+
+        # Pobierz plik MP3
+        with open(audio_path, "rb") as f:
+            st.download_button("⬇️ Pobierz audio (.mp3)", data=f, file_name="audio_z_wideo.mp3")
 
         # TRANSKRYPCJA
         if st.button("📝 Transkrybuj plik wideo"):
