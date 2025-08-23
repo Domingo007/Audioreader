@@ -36,10 +36,57 @@ Narzędzie stworzone z myślą o podcasterach – umożliwia automatyczne tworze
 generowanie napisów oraz przygotowanie materiałów do publikacji 
 w mediach społecznościowych.
 
-ℹ️ **Uwaga:** 
+ﺡ **Uwaga:** 
 Przed wczytaniem nowego pliku należy odświeżyć stronę, aby wyczyścić pamięć poprzedniego pliku.
 📦 **Maksymalny rozmiar pliku: 200MB**
 """)
+
+# === WERSJA 4: 3 krótkie filmy i social media ===
+st.markdown("---")
+st.header("📱 Klipy do social mediów")
+short_clips = st.file_uploader("Wczytaj do 3 krótkich filmów (MP4, max 1 minuta)", type=["mp4"], accept_multiple_files=True, help="Jeden plik na raz – max 60 sekund każdy")
+
+if short_clips:
+    for i, clip in enumerate(short_clips[:3], start=1):
+        st.markdown(f"### 🎨 Klip {i}")
+        st.video(clip)
+
+        if st.button(f"✏️ Stwórz opis i hashtagi dla Klipu {i}"):
+            with tempfile.NamedTemporaryFile(delete=False, suffix=Path(clip.name).suffix) as temp_clip:
+                temp_clip.write(clip.read())
+                clip_path = temp_clip.name
+
+            # Konwersja do MP3
+            clip_audio_path = clip_path.rsplit(".", 1)[0] + ".mp3"
+            subprocess.run([
+                "/usr/local/bin/ffmpeg", "-hide_banner", "-y",
+                "-i", clip_path, "-vn", clip_audio_path
+            ], check=True)
+
+            with open(clip_audio_path, "rb") as f:
+                transcription = openai_client.audio.transcriptions.create(
+                    file=f,
+                    model=AUDIO_TRANSCRIBE_MODEL,
+                    response_format="text"
+                )
+
+            transcript_text = transcription.strip()
+
+            description_prompt = (
+                "Na podstawie poniższej transkrypcji stwórz krótki opis (max 300 znaków) filmu do mediów społecznościowych oraz wygeneruj 10 popularnych hashtagów oddzielonych spacją."
+            )
+
+            response = openai_client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "system", "content": description_prompt},
+                    {"role": "user", "content": transcript_text}
+                ]
+            )
+
+            output = response.choices[0].message.content.strip()
+            st.success("✅ Gotowe")
+            st.text_area("Opis + Hashtagi", value=output, height=200)
 
 # --- Layout: 2 kolumny ---
 col1, col2 = st.columns([1, 2])
