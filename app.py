@@ -28,11 +28,11 @@ if "summary_text" not in st.session_state:
     st.session_state["summary_text"] = ""
 if "key_topics" not in st.session_state:
     st.session_state["key_topics"] = []
-
-# Inicjalizacja opisów klipów
 for i in range(1, 4):
     if f"clip_{i}_desc" not in st.session_state:
         st.session_state[f"clip_{i}_desc"] = ""
+if "youtube_description" not in st.session_state:
+    st.session_state["youtube_description"] = ""
 
 # === PRAWA KOLUMNA: opis ===
 st.title("🎧 AudioReader")
@@ -192,4 +192,33 @@ for i in range(1, 4):
             st.session_state[f"clip_{i}_desc"] = output
 
     if st.session_state.get(f"clip_{i}_desc"):
-        st.text_area("Opis + Hashtagi", value=st.session_state[f"clip_{i}_desc"], height=180)
+        st.text_area(f"Opis + Hashtagi Klip {i}", value=st.session_state[f"clip_{i}_desc"], height=180)
+
+# === OPIS DO YOUTUBE ===
+st.markdown("---")
+st.header("📺 Opis do YouTube")
+if st.button("📘 Generuj opis na YouTube"):
+    with st.spinner("🛠 Generuję opis na YouTube na podstawie treści z klipów i tematów..."):
+        combined_info = "\n\n".join(
+            [st.session_state[f"clip_{i}_desc"] for i in range(1, 4) if st.session_state[f"clip_{i}_desc"]]
+        )
+        key_topics = "\n".join(st.session_state["key_topics"])
+
+        yt_prompt = (
+            "Na podstawie poniższych danych stwórz jeden spójny i zwięzły akapit opisu filmu na YouTube (maksymalnie 500 znaków). Dodaj na końcu dokładnie 10 unikalnych hashtagów po przecinku."
+            f"Opisy:\n{combined_info}\n\nTematy:\n{key_topics}"
+        )
+
+        yt_response = openai_client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": yt_prompt},
+                {"role": "user", "content": "Wygeneruj opis na YouTube."}
+            ]
+        )
+
+        youtube_output = yt_response.choices[0].message.content.strip()
+        st.session_state["youtube_description"] = youtube_output
+
+if st.session_state.get("youtube_description"):
+    st.text_area("Opis YouTube", value=st.session_state["youtube_description"], height=250)
