@@ -36,62 +36,14 @@ Narzędzie stworzone z myślą o podcasterach – umożliwia automatyczne tworze
 generowanie napisów oraz przygotowanie materiałów do publikacji 
 w mediach społecznościowych.
 
-ﺡ **Uwaga:** 
+**Uwaga:** 
 Przed wczytaniem nowego pliku należy odświeżyć stronę, aby wyczyścić pamięć poprzedniego pliku.
 📦 **Maksymalny rozmiar pliku: 200MB**
 """)
 
-# === WERSJA 4: 3 krótkie filmy i social media ===
-st.markdown("---")
-st.header("📱 Klipy do social mediów")
-short_clips = st.file_uploader("Wczytaj do 3 krótkich filmów (MP4, max 1 minuta)", type=["mp4"], accept_multiple_files=True, help="Jeden plik na raz – max 60 sekund każdy")
-
-if short_clips:
-    for i, clip in enumerate(short_clips[:3], start=1):
-        st.markdown(f"### 🎨 Klip {i}")
-        st.video(clip)
-
-        if st.button(f"✏️ Stwórz opis i hashtagi dla Klipu {i}"):
-            with tempfile.NamedTemporaryFile(delete=False, suffix=Path(clip.name).suffix) as temp_clip:
-                temp_clip.write(clip.read())
-                clip_path = temp_clip.name
-
-            # Konwersja do MP3
-            clip_audio_path = clip_path.rsplit(".", 1)[0] + ".mp3"
-            subprocess.run([
-                "/usr/local/bin/ffmpeg", "-hide_banner", "-y",
-                "-i", clip_path, "-vn", clip_audio_path
-            ], check=True)
-
-            with open(clip_audio_path, "rb") as f:
-                transcription = openai_client.audio.transcriptions.create(
-                    file=f,
-                    model=AUDIO_TRANSCRIBE_MODEL,
-                    response_format="text"
-                )
-
-            transcript_text = transcription.strip()
-
-            description_prompt = (
-                "Na podstawie poniższej transkrypcji stwórz krótki opis (max 300 znaków) filmu do mediów społecznościowych oraz wygeneruj 10 popularnych hashtagów oddzielonych spacją."
-            )
-
-            response = openai_client.chat.completions.create(
-                model="gpt-3.5-turbo",
-                messages=[
-                    {"role": "system", "content": description_prompt},
-                    {"role": "user", "content": transcript_text}
-                ]
-            )
-
-            output = response.choices[0].message.content.strip()
-            st.success("✅ Gotowe")
-            st.text_area("Opis + Hashtagi", value=output, height=200)
-
-# --- Layout: 2 kolumny ---
+# === LEWA KOLUMNA: upload + przetwarzanie ===
 col1, col2 = st.columns([1, 2])
 
-# === LEWA KOLUMNA: upload + przetwarzanie ===
 with col1:
     st.subheader("📄 Wczytaj plik wideo")
     video_file = st.file_uploader("Wybierz plik (MP4 lub MOV)", type=["mp4", "mov"])
@@ -99,12 +51,10 @@ with col1:
     if video_file is not None:
         st.write(f"📦 Rozmiar pliku: {video_file.size / (1024 * 1024):.2f} MB")
 
-        # Zapisz plik tymczasowo
         with tempfile.NamedTemporaryFile(delete=False, suffix=Path(video_file.name).suffix) as temp_video:
             temp_video.write(video_file.read())
             video_path = temp_video.name
 
-        # KONWERSJA DO MP3
         audio_path = video_path.rsplit(".", 1)[0] + ".mp3"
         try:
             ffmpeg_path = "/usr/local/bin/ffmpeg"
@@ -119,15 +69,12 @@ with col1:
             st.error(f"❌ Błąd konwersji przez ffmpeg: {e}")
             st.stop()
 
-        # Odtwarzacz audio
         audio_bytes = Path(audio_path).read_bytes()
         st.audio(audio_bytes, format="audio/mp3")
 
-        # Pobierz plik MP3
         with open(audio_path, "rb") as f:
             st.download_button("⬇️ Pobierz audio (.mp3)", data=f, file_name="audio_z_wideo.mp3")
 
-        # TRANSKRYPCJA
         if st.button("📝 Transkrybuj plik wideo"):
             with st.spinner("⏳ Transkrypcja w toku..."):
                 with open(audio_path, "rb") as f:
@@ -138,30 +85,20 @@ with col1:
                     )
                     st.session_state["video_transcript"] = transcript.text
 
-        # EKSPORT TRANSKRYPCJI DO TXT
         if st.session_state["video_transcript"]:
             txt_file = BytesIO(st.session_state["video_transcript"].encode("utf-8"))
             txt_file.name = "transkrypcja.txt"
             st.download_button("⬇️ Pobierz transkrypcję (.txt)", data=txt_file, file_name="transkrypcja.txt")
 
-# === PRAWA KOLUMNA: transkrypcja i analiza ===
 with col2:
     if st.session_state.get("video_transcript"):
         st.markdown("---")
         st.subheader("📄 Pełna transkrypcja z pliku")
-        st.text_area(
-            "Transkrypcja",
-            value=st.session_state["video_transcript"],
-            height=400,
-            disabled=True
-        )
+        st.text_area("Transkrypcja", value=st.session_state["video_transcript"], height=400, disabled=True)
 
         if st.button("📌 Podsumuj rozmowę"):
             with st.spinner("🔍 Analizuję transkrypcję..."):
-                system_prompt = (
-                    "Jesteś asystentem do analizy rozmów. "
-                    "Podsumuj rozmowę w 3-4 zdaniach."
-                )
+                system_prompt = "Jesteś asystentem do analizy rozmów. Podsumuj rozmowę w 3-4 zdaniach."
                 user_prompt = st.session_state["video_transcript"]
 
                 response = openai_client.chat.completions.create(
@@ -175,10 +112,7 @@ with col2:
                 result = response.choices[0].message.content.strip()
                 st.session_state["summary_text"] = result
 
-                # Nowa analiza tematów po podsumowaniu
-                topic_prompt = (
-                    "Wypisz dokładnie 5 najważniejszych tematów poruszonych w rozmowie w postaci punktów."
-                )
+                topic_prompt = "Wypisz dokładnie 5 najważniejszych tematów poruszonych w rozmowie w postaci punktów."
                 topic_response = openai_client.chat.completions.create(
                     model="gpt-3.5-turbo",
                     messages=[
@@ -207,3 +141,48 @@ with col2:
         st.subheader("🔑 Najważniejsze tematy rozmowy:")
         for i, topic in enumerate(st.session_state["key_topics"], start=1):
             st.markdown(f"**{i}.** {topic}")
+
+# === KLIPY DO SOCIAL MEDIÓW ===
+st.markdown("---")
+st.header("🎬 Klipy do social mediów")
+
+for i in range(1, 4):
+    st.markdown(f"## 🎥 Klip {i} (max 1 minuta)")
+    clip = st.file_uploader(f"Wczytaj Klip {i}", type=["mp4", "mov"], key=f"clip_{i}")
+
+    if clip:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=Path(clip.name).suffix) as temp_clip:
+            temp_clip.write(clip.read())
+            clip_path = temp_clip.name
+
+        if st.button(f"✏️ Stwórz opis i hashtagi dla Klipu {i}"):
+            clip_audio_path = clip_path.rsplit(".", 1)[0] + ".mp3"
+            subprocess.run([
+                "/usr/local/bin/ffmpeg", "-hide_banner", "-y",
+                "-i", clip_path, "-vn", clip_audio_path
+            ], check=True)
+
+            with open(clip_audio_path, "rb") as f:
+                transcription = openai_client.audio.transcriptions.create(
+                    file=f,
+                    model=AUDIO_TRANSCRIBE_MODEL,
+                    response_format="text"
+                )
+
+            transcript_text = transcription.strip()
+
+            description_prompt = (
+                "Na podstawie poniższej transkrypcji stwórz krótki opis (max 300 znaków) filmu do mediów społecznościowych oraz wygeneruj 10 unikalnych hashtagów oddzielonych spacją. Nie powtarzaj hashtagów."
+            )
+
+            response = openai_client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "system", "content": description_prompt},
+                    {"role": "user", "content": transcript_text}
+                ]
+            )
+
+            output = response.choices[0].message.content.strip()
+            st.success("✅ Gotowe")
+            st.text_area("Opis + Hashtagi", value=output, height=180)
