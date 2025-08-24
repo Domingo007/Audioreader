@@ -29,6 +29,11 @@ if "summary_text" not in st.session_state:
 if "key_topics" not in st.session_state:
     st.session_state["key_topics"] = []
 
+# Inicjalizacja opisów klipów
+for i in range(1, 4):
+    if f"clip_{i}_desc" not in st.session_state:
+        st.session_state[f"clip_{i}_desc"] = ""
+
 # === PRAWA KOLUMNA: opis ===
 st.title("🎧 AudioReader")
 st.markdown("""
@@ -36,7 +41,7 @@ Narzędzie stworzone z myślą o podcasterach – umożliwia automatyczne tworze
 generowanie napisów oraz przygotowanie materiałów do publikacji 
 w mediach społecznościowych.
 
-**Uwaga:** 
+ﺡ **Uwaga:** 
 Przed wczytaniem nowego pliku należy odświeżyć stronę, aby wyczyścić pamięć poprzedniego pliku.
 📦 **Maksymalny rozmiar pliku: 200MB**
 """)
@@ -184,5 +189,7 @@ for i in range(1, 4):
             )
 
             output = response.choices[0].message.content.strip()
-            st.success("✅ Gotowe")
-            st.text_area("Opis + Hashtagi", value=output, height=180)
+            st.session_state[f"clip_{i}_desc"] = output
+
+    if st.session_state.get(f"clip_{i}_desc"):
+        st.text_area("Opis + Hashtagi", value=st.session_state[f"clip_{i}_desc"], height=180)
