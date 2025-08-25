@@ -5,23 +5,30 @@ import os
 import subprocess
 
 import streamlit as st
-from dotenv import dotenv_values
 from openai import OpenAI
 
-# --- Konfiguracja środowiska i klienta OpenAI ---
-env = dotenv_values(".env")
-AUDIO_TRANSCRIBE_MODEL = "whisper-1"
-
-@st.cache_resource
-def get_openai_client():
-    return OpenAI(api_key=env["OPENAI_API_KEY"])
-
-openai_client = get_openai_client()
-
-# --- Konfiguracja strony ---
+# === INTERFEJS LOGOWANIA ===
 st.set_page_config(page_title="AudioReader", page_icon="🎷", layout="wide")
 
-# --- Inicjalizacja sesji ---
+if "api_key" not in st.session_state:
+    st.session_state["api_key"] = ""
+
+if not st.session_state["api_key"]:
+    st.markdown("<h2 style='text-align: center;'>🔐 Logowanie do AudioReader</h2>", unsafe_allow_html=True)
+    api_input = st.text_input("Podaj swój klucz API OpenAI:", type="password")
+    if st.button("Zaloguj"):
+        if api_input:
+            st.session_state["api_key"] = api_input
+            st.rerun()
+        else:
+            st.warning("⚠️ Podaj prawidłowy klucz API, aby kontynuować.")
+    st.stop()
+
+# === KLIENT OPENAI ===
+openai_client = OpenAI(api_key=st.session_state["api_key"])
+AUDIO_TRANSCRIBE_MODEL = "whisper-1"
+
+# === INICJALIZACJA SESSION STATE ===
 if "video_transcript" not in st.session_state:
     st.session_state["video_transcript"] = ""
 if "summary_text" not in st.session_state:
@@ -36,7 +43,7 @@ for i in range(1, 4):
 if "youtube_description" not in st.session_state:
     st.session_state["youtube_description"] = ""
 
-# === PRAWA KOLUMNA: opis ===
+# === PANEL OPISOWY ===
 st.title("🎷 AudioReader")
 st.markdown("""
 Narzędzie stworzone z myślą o podcasterach – umożliwia automatyczne tworzenie transkrypcji wywiadów, 
@@ -48,7 +55,7 @@ Przed wczytaniem nowego pliku należy odświeżyć stronę, aby wyczyścić pami
 📦 **Maksymalny rozmiar pliku: 200MB**
 """)
 
-# === LEWA KOLUMNA: upload + przetwarzanie ===
+# === LEWA I PRAWA KOLUMNA ===
 col1, col2 = st.columns([1, 2])
 
 with col1:
@@ -115,13 +122,12 @@ with col1:
                 final_transcript = "\n".join(timestamped_text)
                 st.session_state["timestamped_transcript"] = final_transcript
 
-    # Transkrypcja pełna - pobieranie
+    # Pobieranie transkrypcji
     if st.session_state.get("video_transcript"):
         txt_file = BytesIO(st.session_state["video_transcript"].encode("utf-8"))
         txt_file.name = "transkrypcja.txt"
         st.download_button("⬇️ Pobierz transkrypcję (.txt)", data=txt_file, file_name="transkrypcja.txt")
 
-    # Transkrypcja ze znacznikami - podgląd + pobieranie
     if st.session_state.get("timestamped_transcript"):
         st.text_area("📘 Transkrypcja ze znacznikami czasowymi", value=st.session_state["timestamped_transcript"], height=400)
         ts_file = BytesIO(st.session_state["timestamped_transcript"].encode("utf-8"))
