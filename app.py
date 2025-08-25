@@ -71,7 +71,7 @@ with col1:
 
         audio_path = video_path.rsplit(".", 1)[0] + ".mp3"
         try:
-            ffmpeg_path = "/usr/local/bin/ffmpeg"
+            ffmpeg_path = "ffmpeg"
             subprocess.run([
                 ffmpeg_path, "-hide_banner", "-y",
                 "-i", video_path,
