@@ -201,8 +201,9 @@ for i in range(1, 4):
 
         if st.button(f"✏️ Stwórz opis i hashtagi dla Klipu {i}"):
             clip_audio_path = clip_path.rsplit(".", 1)[0] + ".mp3"
+            ffmpeg_path = "ffmpeg"
             subprocess.run([
-                "/usr/local/bin/ffmpeg", "-hide_banner", "-y",
+                ffmpeg_path, "-hide_banner", "-y",
                 "-i", clip_path, "-vn", clip_audio_path
             ], check=True)
 
