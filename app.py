@@ -28,6 +28,8 @@ if "summary_text" not in st.session_state:
     st.session_state["summary_text"] = ""
 if "key_topics" not in st.session_state:
     st.session_state["key_topics"] = []
+if "timestamped_transcript" not in st.session_state:
+    st.session_state["timestamped_transcript"] = ""
 for i in range(1, 4):
     if f"clip_{i}_desc" not in st.session_state:
         st.session_state[f"clip_{i}_desc"] = ""
@@ -35,13 +37,13 @@ if "youtube_description" not in st.session_state:
     st.session_state["youtube_description"] = ""
 
 # === PRAWA KOLUMNA: opis ===
-st.title("🎧 AudioReader")
+st.title("🎷 AudioReader")
 st.markdown("""
 Narzędzie stworzone z myślą o podcasterach – umożliwia automatyczne tworzenie transkrypcji wywiadów, 
 generowanie napisów oraz przygotowanie materiałów do publikacji 
 w mediach społecznościowych.
 
-ﺡ **Uwaga:** 
+**Uwaga:** 
 Przed wczytaniem nowego pliku należy odświeżyć stronę, aby wyczyścić pamięć poprzedniego pliku.
 📦 **Maksymalny rozmiar pliku: 200MB**
 """)
@@ -90,10 +92,41 @@ with col1:
                     )
                     st.session_state["video_transcript"] = transcript.text
 
-        if st.session_state["video_transcript"]:
-            txt_file = BytesIO(st.session_state["video_transcript"].encode("utf-8"))
-            txt_file.name = "transkrypcja.txt"
-            st.download_button("⬇️ Pobierz transkrypcję (.txt)", data=txt_file, file_name="transkrypcja.txt")
+        if st.button("🎯 Stwórz transkrypcję ze znacznikami czasowymi"):
+            with st.spinner("📚 Tworzę transkrypcję ze znacznikami czasu..."):
+                with open(audio_path, "rb") as f:
+                    transcript_data = openai_client.audio.transcriptions.create(
+                        file=f,
+                        model=AUDIO_TRANSCRIBE_MODEL,
+                        response_format="verbose_json"
+                    )
+
+                segments = transcript_data.segments
+                timestamped_text = []
+
+                for seg in segments:
+                    start_time = int(seg.start)
+                    minutes = start_time // 60
+                    seconds = start_time % 60
+                    timestamp = f"{minutes:02d}:{seconds:02d}"
+                    text = seg.text.strip()
+                    timestamped_text.append(f"{timestamp} - {text}")
+
+                final_transcript = "\n".join(timestamped_text)
+                st.session_state["timestamped_transcript"] = final_transcript
+
+    # Transkrypcja pełna - pobieranie
+    if st.session_state.get("video_transcript"):
+        txt_file = BytesIO(st.session_state["video_transcript"].encode("utf-8"))
+        txt_file.name = "transkrypcja.txt"
+        st.download_button("⬇️ Pobierz transkrypcję (.txt)", data=txt_file, file_name="transkrypcja.txt")
+
+    # Transkrypcja ze znacznikami - podgląd + pobieranie
+    if st.session_state.get("timestamped_transcript"):
+        st.text_area("📘 Transkrypcja ze znacznikami czasowymi", value=st.session_state["timestamped_transcript"], height=400)
+        ts_file = BytesIO(st.session_state["timestamped_transcript"].encode("utf-8"))
+        ts_file.name = "transkrypcja_ze_znacznikami.txt"
+        st.download_button("⬇️ Pobierz transkrypcję ze znacznikami", data=ts_file, file_name="transkrypcja_ze_znacznikami.txt")
 
 with col2:
     if st.session_state.get("video_transcript"):
@@ -139,7 +172,7 @@ with col2:
 
     if st.session_state.get("summary_text"):
         st.markdown("---")
-        st.subheader("🧠 Podsumowanie rozmowy")
+        st.subheader("🧐 Podsumowanie rozmowy")
         st.write(st.session_state["summary_text"])
 
     if st.session_state.get("key_topics"):
@@ -198,7 +231,7 @@ for i in range(1, 4):
 st.markdown("---")
 st.header("📺 Opis do YouTube")
 if st.button("📘 Generuj opis na YouTube"):
-    with st.spinner("🛠 Generuję opis na YouTube na podstawie treści z klipów i tematów..."):
+    with st.spinner("🚰 Generuję opis na YouTube na podstawie treści z klipów i tematów..."):
         combined_info = "\n\n".join(
             [st.session_state[f"clip_{i}_desc"] for i in range(1, 4) if st.session_state[f"clip_{i}_desc"]]
         )
